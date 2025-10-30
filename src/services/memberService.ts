@@ -1,0 +1,462 @@
+import { supabase } from './supabase';
+import type { Member, UpdateMemberData } from '../types/database';
+
+export class MemberService {
+  // Get all members with their user details, fee packages, and latest bill status
+  static async getAllMembers(): Promise<Member[]> {
+    console.log('MemberService: Fetching all members from members table...');
+    
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*),
+        bills(
+          id,
+          status,
+          amount,
+          due_date,
+          paid_date,
+          created_at
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('MemberService: Error fetching members:', error);
+      throw new Error(`Failed to fetch members: ${error.message}`);
+    }
+
+    // Filter out admin users from the member list
+    const filteredMembers = data?.filter(member => {
+      // Exclude members whose associated user has ADMIN role
+      return member.user?.role !== 'ADMIN';
+    }) || [];
+
+    console.log('MemberService: Found members (excluding admins):', filteredMembers.length);
+    
+    return filteredMembers;
+  }
+
+  // Get member by ID
+  static async getMemberById(id: string): Promise<Member | null> {
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*),
+        bills(*)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // Member not found
+      }
+      throw new Error(`Failed to fetch member: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  // Create new member with proper user profile
+  static async createMember(userData: {
+    email: string;
+    full_name: string;
+    phone?: string;
+    role?: 'MEMBER' | 'USER';
+  }, memberData: {
+    address?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    date_of_birth?: string;
+  }): Promise<Member> {
+    console.log('MemberService: Creating new member with user profile...');
+    
+    // Generate a UUID for the user
+    const userId = crypto.randomUUID();
+    
+    // Create user profile first
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: userId,
+        email: userData.email,
+        full_name: userData.full_name,
+        phone: userData.phone,
+        role: userData.role || 'MEMBER'
+      })
+      .select()
+      .single();
+
+    if (userError) {
+      throw new Error(`Failed to create user profile: ${userError.message}`);
+    }
+
+    try {
+      // Generate membership number
+      const membershipNumber = await this.generateMembershipNumber();
+
+      // Create the member record
+      const { data: member, error: memberError } = await supabase
+        .from('members')
+        .insert({
+          user_id: user.id,
+          membership_number: membershipNumber,
+          join_date: new Date().toISOString().split('T')[0],
+          status: 'INACTIVE',
+          address: memberData.address,
+          emergency_contact_name: memberData.emergency_contact_name,
+          emergency_contact_phone: memberData.emergency_contact_phone,
+          date_of_birth: memberData.date_of_birth,
+        })
+        .select(`
+          *,
+          user:users(*),
+          fee_package:fee_packages(*)
+        `)
+        .single();
+
+      if (memberError) {
+        // Cleanup: delete the user if member creation fails
+        await supabase.from('users').delete().eq('id', user.id);
+        throw new Error(`Failed to create member: ${memberError.message}`);
+      }
+
+      console.log('MemberService: Member created successfully:', {
+        membershipNumber: member.membership_number,
+        userName: member.user?.full_name,
+        userEmail: member.user?.email,
+        userRole: member.user?.role,
+        status: member.status
+      });
+      return member;
+      
+    } catch (error) {
+      // Cleanup user if anything fails
+      await supabase.from('users').delete().eq('id', user.id);
+      throw error;
+    }
+  }
+
+  // Update member
+  static async updateMember(id: string, data: UpdateMemberData): Promise<Member> {
+    const { data: member, error } = await supabase
+      .from('members')
+      .update(data)
+      .eq('id', id)
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*)
+      `)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update member: ${error.message}`);
+    }
+
+    return member;
+  }
+
+  // Update member's user details
+  static async updateMemberUser(memberId: string, userData: {
+    full_name?: string;
+    phone?: string;
+    email?: string;
+  }): Promise<Member> {
+    // First get the member to find the user_id
+    const member = await this.getMemberById(memberId);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    // Update the user
+    const { error: userError } = await supabase
+      .from('users')
+      .update(userData)
+      .eq('id', member.user_id);
+
+    if (userError) {
+      throw new Error(`Failed to update user: ${userError.message}`);
+    }
+
+    // Return updated member
+    return this.getMemberById(memberId) as Promise<Member>;
+  }
+
+  // Delete member (also deletes associated user)
+  static async deleteMember(id: string): Promise<void> {
+    // First get the member to find the user_id
+    const member = await this.getMemberById(id);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    // Delete member first (due to foreign key constraints)
+    const { error: memberError } = await supabase
+      .from('members')
+      .delete()
+      .eq('id', id);
+
+    if (memberError) {
+      throw new Error(`Failed to delete member: ${memberError.message}`);
+    }
+
+    // Then delete the user
+    const { error: userError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', member.user_id);
+
+    if (userError) {
+      throw new Error(`Failed to delete user: ${userError.message}`);
+    }
+  }
+
+  // Search members
+  static async searchMembers(query: string): Promise<Member[]> {
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*)
+      `)
+      .or(`membership_number.ilike.%${query}%,user.full_name.ilike.%${query}%,user.email.ilike.%${query}%`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to search members: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  // Upload profile photo
+  static async uploadProfilePhoto(memberId: string, file: File): Promise<string> {
+    // Get the member to find the user_id
+    const member = await this.getMemberById(memberId);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    // Use user_id as folder name to match storage policies
+    const filePath = `${member.user_id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('profile-photos')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw new Error(`Failed to upload photo: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data } = supabase.storage
+      .from('profile-photos')
+      .getPublicUrl(filePath);
+
+    const photoUrl = data.publicUrl;
+
+    // Update member's user profile photo URL
+    await supabase
+      .from('users')
+      .update({ profile_photo_url: photoUrl })
+      .eq('id', member.user_id);
+
+    return photoUrl;
+  }
+
+  // Delete profile photo
+  static async deleteProfilePhoto(memberId: string): Promise<void> {
+    const member = await this.getMemberById(memberId);
+    if (!member || !member.user?.profile_photo_url) {
+      return;
+    }
+
+    // Extract file path from URL
+    const url = new URL(member.user.profile_photo_url);
+    const filePath = url.pathname.split('/').slice(-2).join('/'); // Get last two parts
+
+    // Delete from storage
+    const { error: deleteError } = await supabase.storage
+      .from('profile-photos')
+      .remove([filePath]);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete photo: ${deleteError.message}`);
+    }
+
+    // Update user record
+    await supabase
+      .from('users')
+      .update({ profile_photo_url: null })
+      .eq('id', member.user_id);
+  }
+
+  // Generate unique membership number
+  private static async generateMembershipNumber(): Promise<string> {
+    const prefix = 'GYM';
+    const year = new Date().getFullYear();
+    
+    // Get the count of members created this year
+    const { count, error } = await supabase
+      .from('members')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', `${year}-01-01`)
+      .lt('created_at', `${year + 1}-01-01`);
+
+    if (error) {
+      throw new Error(`Failed to generate membership number: ${error.message}`);
+    }
+
+    const memberCount = (count || 0) + 1;
+    const paddedCount = memberCount.toString().padStart(4, '0');
+    
+    return `${prefix}${year}${paddedCount}`;
+  }
+
+  // Get members by status
+  static async getMembersByStatus(status: Member['status']): Promise<Member[]> {
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*)
+      `)
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch members by status: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  // Get member statistics from members table with proper status counts (excluding admins)
+  static async getMemberStats(): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    expired: number;
+    suspended: number;
+  }> {
+    console.log('MemberService: Fetching member stats from members table...');
+    
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        status,
+        user:users(role)
+      `);
+
+    if (error) {
+      console.error('MemberService: Error fetching member stats:', error);
+      throw new Error(`Failed to fetch member stats: ${error.message}`);
+    }
+
+    // Filter out admin users from stats
+    const memberData = data?.filter(m => (m.user as any)?.role !== 'ADMIN') || [];
+
+    const stats = {
+      total: memberData.length,
+      active: memberData.filter(m => m.status === 'ACTIVE').length,
+      inactive: memberData.filter(m => m.status === 'INACTIVE').length,
+      expired: memberData.filter(m => m.status === 'EXPIRED').length,
+      suspended: memberData.filter(m => m.status === 'SUSPENDED').length,
+    };
+
+    console.log('MemberService: Member stats (excluding admins):', stats);
+    return stats;
+  }
+
+  // Update expired memberships automatically
+  static async updateExpiredMemberships(): Promise<{
+    updated: number;
+    expiredMembers: string[];
+  }> {
+    console.log('MemberService: Checking for expired memberships...');
+    
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    
+    // Find members whose membership has expired but status is still ACTIVE
+    const { data: expiredMembers, error: fetchError } = await supabase
+      .from('members')
+      .select('id, membership_number, membership_end_date, user:users(full_name, email)')
+      .eq('status', 'ACTIVE')
+      .lt('membership_end_date', today)
+      .not('membership_end_date', 'is', null);
+
+    if (fetchError) {
+      console.error('MemberService: Error fetching expired members:', fetchError);
+      throw new Error(`Failed to fetch expired members: ${fetchError.message}`);
+    }
+
+    if (!expiredMembers || expiredMembers.length === 0) {
+      console.log('MemberService: No expired memberships found');
+      return { updated: 0, expiredMembers: [] };
+    }
+
+    console.log(`MemberService: Found ${expiredMembers.length} expired memberships`);
+
+    // Update status to EXPIRED for all expired members
+    const memberIds = expiredMembers.map(m => m.id);
+    const { error: updateError } = await supabase
+      .from('members')
+      .update({ status: 'EXPIRED' })
+      .in('id', memberIds);
+
+    if (updateError) {
+      console.error('MemberService: Error updating expired members:', updateError);
+      throw new Error(`Failed to update expired members: ${updateError.message}`);
+    }
+
+    const expiredMemberNames = expiredMembers.map(m => 
+      `${m.membership_number} (${(m.user as any)?.full_name || 'Unknown'})`
+    );
+
+    console.log('MemberService: Updated expired memberships:', expiredMemberNames);
+
+    return {
+      updated: expiredMembers.length,
+      expiredMembers: expiredMemberNames
+    };
+  }
+
+  // Check for memberships expiring soon (within 7 days)
+  static async getMembersExpiringSoon(): Promise<Member[]> {
+    const today = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(today.getDate() + 7);
+
+    const todayStr = today.toISOString().split('T')[0];
+    const sevenDaysStr = sevenDaysFromNow.toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('members')
+      .select(`
+        *,
+        user:users(*),
+        fee_package:fee_packages(*)
+      `)
+      .eq('status', 'ACTIVE')
+      .gte('membership_end_date', todayStr)
+      .lte('membership_end_date', sevenDaysStr)
+      .not('membership_end_date', 'is', null)
+      .order('membership_end_date', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to fetch members expiring soon: ${error.message}`);
+    }
+
+    return data || [];
+  }
+}

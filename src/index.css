@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom gym-themed styles */
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .gym-card {
+    @apply bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-white/20;
+  }
+  
+  .gym-button {
+    @apply bg-gradient-to-r from-gym-primary to-gym-secondary text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-105;
+  }
+  
+  .gym-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gym-primary focus:border-transparent transition-all duration-200;
+  }
+}
+
+/* Ensure Tailwind styles are loaded */
+.test-tailwind {
+  @apply bg-red-500 text-white p-4 rounded;
+}
