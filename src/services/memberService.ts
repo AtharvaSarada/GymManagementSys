@@ -300,93 +300,23 @@ export class MemberService {
       .eq('id', member.user_id);
   }
 
-  // Generate unique membership number
+  // Generate unique membership number using timestamp-based approach
   private static async generateMembershipNumber(): Promise<string> {
     const prefix = 'GYM';
     const year = new Date().getFullYear();
     
     console.log('MemberService: Generating membership number...');
     
-    // Use timestamp + random number for better uniqueness
+    // Use timestamp + random for guaranteed uniqueness
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
     
-    // Try sequential approach first
-    try {
-      // Find the highest existing membership number for this year
-      const { data: existingMembers, error } = await supabase
-        .from('members')
-        .select('membership_number')
-        .like('membership_number', `${prefix}${year}%`)
-        .order('membership_number', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.warn('MemberService: Error fetching existing members, using fallback approach:', error.message);
-        // Fallback to timestamp-based approach
-        const fallbackNumber = `${prefix}${year}${(timestamp % 10000).toString().padStart(4, '0')}`;
-        console.log('MemberService: Generated fallback membership number:', fallbackNumber);
-        return fallbackNumber;
-      }
-
-      let nextNumber = 1;
-      
-      if (existingMembers && existingMembers.length > 0) {
-        const lastNumber = existingMembers[0].membership_number;
-        console.log('MemberService: Last membership number found:', lastNumber);
-        // Extract the number part (last 4 digits)
-        const numberPart = lastNumber.slice(-4);
-        nextNumber = parseInt(numberPart, 10) + 1;
-      }
-
-      // Keep trying until we find a unique number (in case of race conditions)
-      let attempts = 0;
-      const maxAttempts = 50; // Reduced attempts, then fallback
-      
-      while (attempts < maxAttempts) {
-        const paddedCount = nextNumber.toString().padStart(4, '0');
-        const membershipNumber = `${prefix}${year}${paddedCount}`;
-        
-        console.log(`MemberService: Checking membership number uniqueness (attempt ${attempts + 1}):`, membershipNumber);
-        
-        // Check if this number already exists
-        const { data: existing, error: checkError } = await supabase
-          .from('members')
-          .select('id')
-          .eq('membership_number', membershipNumber)
-          .limit(1);
-
-        if (checkError) {
-          console.warn('MemberService: Error checking uniqueness, using fallback:', checkError.message);
-          // Fallback to timestamp + random approach
-          const fallbackNumber = `${prefix}${year}${((timestamp + random) % 10000).toString().padStart(4, '0')}`;
-          console.log('MemberService: Generated fallback membership number:', fallbackNumber);
-          return fallbackNumber;
-        }
-
-        if (!existing || existing.length === 0) {
-          // This number is unique, use it
-          console.log('MemberService: Generated unique membership number:', membershipNumber);
-          return membershipNumber;
-        }
-
-        // Number exists, try the next one
-        nextNumber++;
-        attempts++;
-      }
-
-      // If we've exhausted attempts, use timestamp-based fallback
-      const fallbackNumber = `${prefix}${year}${((timestamp + random + attempts) % 10000).toString().padStart(4, '0')}`;
-      console.log('MemberService: Max attempts reached, using fallback membership number:', fallbackNumber);
-      return fallbackNumber;
-      
-    } catch (error) {
-      console.error('MemberService: Unexpected error in membership number generation:', error);
-      // Ultimate fallback
-      const emergencyNumber = `${prefix}${year}${((timestamp + random) % 10000).toString().padStart(4, '0')}`;
-      console.log('MemberService: Using emergency fallback membership number:', emergencyNumber);
-      return emergencyNumber;
-    }
+    // Create a unique number based on timestamp and random
+    const uniqueNumber = ((timestamp % 100000) + random) % 10000;
+    const membershipNumber = `${prefix}${year}${uniqueNumber.toString().padStart(4, '0')}`;
+    
+    console.log('MemberService: Generated timestamp-based membership number:', membershipNumber);
+    return membershipNumber;
   }
 
   // Get members by status
@@ -755,6 +685,17 @@ export class MemberService {
             throw new Error(`Failed to create member record after ${maxAttempts} attempts: ${error}`);
           }
         }
+      }
+
+      // Check if member was successfully created
+      if (!member) {
+        // Rollback user role update
+        await supabase
+          .from('users')
+          .update({ role: 'USER' })
+          .eq('id', userId);
+        
+        throw new Error('Failed to create member record: Member creation failed after all attempts');
       }
 
       console.log('MemberService: User successfully upgraded to member:', membershipNumber);
