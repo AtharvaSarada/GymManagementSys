@@ -5,6 +5,7 @@ import { GymInfoDisplay } from '../components/user/GymInfoDisplay';
 import { GymHours } from '../components/user/GymHours';
 import { GymStats } from '../components/user/GymStats';
 import { SupplementStore } from '../components/shared/SupplementStore';
+import { BecomeMemberModal } from '../components/user/BecomeMemberModal';
 import { gymInfoService } from '../services/gymInfoService';
 
 export const UserDashboard: React.FC = () => {
@@ -18,6 +19,7 @@ export const UserDashboard: React.FC = () => {
     contact: null
   });
   const [loading, setLoading] = useState(true);
+  const [showBecomeMemberModal, setShowBecomeMemberModal] = useState(false);
 
   useEffect(() => {
     const loadDefaultData = async () => {
@@ -52,6 +54,11 @@ export const UserDashboard: React.FC = () => {
   };
 
   const displayData = searchResults || defaultData;
+
+  const handleBecomeMemberSuccess = () => {
+    // Refresh the page to update user role and redirect to member dashboard
+    window.location.reload();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-teal-800 to-blue-900">
@@ -153,16 +160,55 @@ export const UserDashboard: React.FC = () => {
                 </div>
               )}
 
-              {/* Call to Action */}
-              <div className="mt-8 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-8 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to Join Our Gym?</h2>
-                <p className="text-gray-600 mb-6">
-                  Upgrade to a member account to access exclusive features, track your progress, and manage your membership.
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">
-                  Become a Member
-                </button>
-              </div>
+              {/* Call to Action - Only show for USER role */}
+              {userProfile?.role === 'USER' && (
+                <div className="mt-8 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-8 text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <h2 className="text-2xl font-bold text-gray-900">Ready to Join Our Gym?</h2>
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    Upgrade to a member account to access exclusive features, track your progress, and manage your membership.
+                  </p>
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => setShowBecomeMemberModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors inline-flex items-center"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Become a Member
+                    </button>
+                    <p className="text-sm text-gray-500">
+                      Choose from flexible membership plans starting from ₹1,500/month
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Member Status - Show for MEMBER role */}
+              {userProfile?.role === 'MEMBER' && (
+                <div className="mt-8 bg-green-50 border border-green-200 rounded-xl shadow-lg p-8 text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h2 className="text-2xl font-bold text-green-900">You're a Member!</h2>
+                  </div>
+                  <p className="text-green-700 mb-6">
+                    Welcome to our gym community! Access your member dashboard to manage your membership, view bills, and track your progress.
+                  </p>
+                  <button 
+                    onClick={() => window.location.href = '/member'}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Go to Member Dashboard
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -172,6 +218,13 @@ export const UserDashboard: React.FC = () => {
             </div>
           )}
         </main>
+
+        {/* Become Member Modal */}
+        <BecomeMemberModal
+          isOpen={showBecomeMemberModal}
+          onClose={() => setShowBecomeMemberModal(false)}
+          onSuccess={handleBecomeMemberSuccess}
+        />
       </div>
     </div>
   );

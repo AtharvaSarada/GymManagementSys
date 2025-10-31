@@ -587,4 +587,95 @@ export class MemberService {
     
     return data || [];
   }
+
+  // Upgrade user to member with selected package
+  static async upgradeUserToMember(
+    userId: string,
+    packageId: string,
+    memberDetails: {
+      phone?: string;
+      address?: string;
+      emergency_contact_name?: string;
+      emergency_contact_phone?: string;
+      date_of_birth?: string;
+    }
+  ): Promise<{ member: Member; membershipNumber: string }> {
+    console.log('MemberService: Upgrading user to member:', userId);
+
+    try {
+      // Step 1: Update user role to MEMBER
+      const { error: roleUpdateError } = await supabase
+        .from('users')
+        .update({ 
+          role: 'MEMBER',
+          phone: memberDetails.phone 
+        })
+        .eq('id', userId);
+
+      if (roleUpdateError) {
+        throw new Error(`Failed to update user role: ${roleUpdateError.message}`);
+      }
+
+      // Step 2: Generate membership number
+      const membershipNumber = await this.generateMembershipNumber();
+
+      // Step 3: Get package details for end date calculation
+      const { data: feePackage, error: packageError } = await supabase
+        .from('fee_packages')
+        .select('duration_months')
+        .eq('id', packageId)
+        .single();
+
+      if (packageError) {
+        throw new Error(`Failed to fetch package details: ${packageError.message}`);
+      }
+
+      // Step 4: Calculate membership end date
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + feePackage.duration_months);
+
+      // Step 5: Create member record
+      const memberData = {
+        user_id: userId,
+        membership_number: membershipNumber,
+        join_date: startDate.toISOString().split('T')[0],
+        status: 'ACTIVE' as const,
+        fee_package_id: packageId,
+        membership_start_date: startDate.toISOString().split('T')[0],
+        membership_end_date: endDate.toISOString().split('T')[0],
+        address: memberDetails.address || null,
+        emergency_contact_name: memberDetails.emergency_contact_name || null,
+        emergency_contact_phone: memberDetails.emergency_contact_phone || null,
+        date_of_birth: memberDetails.date_of_birth || null
+      };
+
+      const { data: member, error: memberError } = await supabase
+        .from('members')
+        .insert(memberData)
+        .select(`
+          *,
+          user:users(*),
+          fee_package:fee_packages(*)
+        `)
+        .single();
+
+      if (memberError) {
+        // Rollback user role update
+        await supabase
+          .from('users')
+          .update({ role: 'USER' })
+          .eq('id', userId);
+        
+        throw new Error(`Failed to create member record: ${memberError.message}`);
+      }
+
+      console.log('MemberService: User successfully upgraded to member:', membershipNumber);
+      return { member, membershipNumber };
+
+    } catch (error) {
+      console.error('MemberService: Error upgrading user to member:', error);
+      throw error;
+    }
+  }
 }
