@@ -11,7 +11,7 @@ const registerSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
-  role: z.enum(['ADMIN', 'MEMBER', 'USER'] as const),
+  role: z.enum(['MEMBER', 'USER'] as const),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -187,15 +187,14 @@ export const Register: React.FC = () => {
                 id="role"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="USER">General User</option>
-                <option value="MEMBER">Gym Member</option>
-                <option value="ADMIN">Administrator</option>
+                <option value="USER">General User - Browse gym information</option>
+                <option value="MEMBER">Gym Member - Full membership access</option>
               </select>
               {errors.role && (
                 <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
               )}
               <p className="mt-1 text-xs text-gray-500">
-                Choose your account type. Select the appropriate role for your access level.
+                Choose your account type. General Users can browse gym info, Members get full access to membership features.
               </p>
             </div>
 

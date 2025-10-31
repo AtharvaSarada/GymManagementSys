@@ -176,6 +176,20 @@ The app is already optimized with:
 - ✅ **Environment variables** secured
 - ✅ **HTTPS** enforced by Vercel
 - ✅ **API keys** properly scoped
+- ✅ **Admin registration** restricted to database level
+
+### **Admin Account Creation:**
+**Important**: Admin accounts can only be created through the Supabase dashboard for security reasons.
+
+**To create an admin account:**
+1. **Go to Supabase Dashboard** → Authentication → Users
+2. **Create a new user** with email/password
+3. **Go to Table Editor** → users table
+4. **Find the new user** and edit the row
+5. **Change the role** from 'USER' to 'ADMIN'
+6. **Save the changes**
+
+**Public registration** only allows USER and MEMBER roles for security.
 
 ### **Recommended Additional Security:**
 - [ ] **Rate limiting** (consider Vercel Pro features)
