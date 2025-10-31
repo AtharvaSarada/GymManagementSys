@@ -1,9 +1,12 @@
 -- Fix RLS policies to allow users to become members and create bills
 -- This addresses the foreign key constraint and RLS policy issues
 
--- Drop existing restrictive policies
+-- Drop existing policies to avoid conflicts
 DROP POLICY IF EXISTS "Admins can insert members" ON public.members;
+DROP POLICY IF EXISTS "Users can insert own member record" ON public.members;
 DROP POLICY IF EXISTS "Only admins can insert bills" ON public.bills;
+DROP POLICY IF EXISTS "Admins can insert bills" ON public.bills;
+DROP POLICY IF EXISTS "Users can insert own bills" ON public.bills;
 
 -- MEMBERS TABLE POLICIES - Allow users to create their own member records
 -- Admins can insert any member
@@ -49,5 +52,6 @@ CREATE POLICY "Users can update own profile" ON public.users
 
 -- Allow user registration (insert new users)
 -- This is needed for the signup process to work
+DROP POLICY IF EXISTS "Allow user registration" ON public.users;
 CREATE POLICY "Allow user registration" ON public.users
     FOR INSERT WITH CHECK (true);
