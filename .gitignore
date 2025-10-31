@@ -33,9 +33,21 @@ dist-ssr
 # Vercel
 .vercel
 
-# Database files (keep these local)
+# AI Planning and Development Files
+.kiro/
+PROJECT_REPORT.md
+DEPLOYMENT_GUIDE.md
+ADMIN_SETUP_GUIDE.md
+DIET_MANAGEMENT_SETUP.md
+SUPPLEMENT_STORE_SETUP.md
+
+# Database development files (keep these local)
 database/
 scripts/
 
-# Kiro IDE files
-.kiro/
+# Keep only essential database files for production
+!database/schema.sql
+!database/storage_setup.sql
+!database/rls_policies.sql
+!database/diet_plans_schema.sql
+!database/supplements_schema_fixed.sql
