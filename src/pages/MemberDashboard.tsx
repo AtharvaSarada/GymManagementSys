@@ -9,7 +9,7 @@ import { SupplementStore } from '../components/shared/SupplementStore';
 import type { Member } from '../types/database';
 
 export const MemberDashboard: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<'overview' | 'bills' | 'notifications' | 'diet' | 'supplements' | 'profile'>('overview');
@@ -29,6 +29,8 @@ export const MemberDashboard: React.FC = () => {
       if (!user) return;
       
       try {
+        console.log('MemberDashboard: Fetching member data for user:', user.id);
+        
         // Get member data by user ID
         const { data: members, error } = await supabase
           .from('members')
@@ -41,19 +43,48 @@ export const MemberDashboard: React.FC = () => {
           .single();
 
         if (error) {
-          console.error('Error fetching member data:', error);
+          console.error('MemberDashboard: Error fetching member data:', error);
+          
+          // If user has MEMBER role but no member record exists, create one
+          if (userProfile?.role === 'MEMBER' && error.code === 'PGRST116') {
+            console.log('MemberDashboard: User has MEMBER role but no member record, creating one...');
+            
+            const memberData = {
+              user_id: user.id,
+              join_date: new Date().toISOString().split('T')[0],
+              status: 'INACTIVE'
+            };
+            
+            const { data: newMember, error: createError } = await supabase
+              .from('members')
+              .insert(memberData)
+              .select(`
+                *,
+                user:users(*),
+                fee_package:fee_packages(*)
+              `)
+              .single();
+              
+            if (createError) {
+              console.error('MemberDashboard: Error creating member record:', createError);
+            } else {
+              console.log('MemberDashboard: Member record created successfully:', newMember);
+              setMember(newMember);
+            }
+          }
         } else {
+          console.log('MemberDashboard: Member data fetched successfully:', members);
           setMember(members);
         }
       } catch (error) {
-        console.error('Error fetching member data:', error);
+        console.error('MemberDashboard: Unexpected error fetching member data:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMemberData();
-  }, [user]);
+  }, [user, userProfile]);
 
   if (loading) {
     return (
@@ -142,16 +173,16 @@ export const MemberDashboard: React.FC = () => {
 
                 {/* Profile Photo */}
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
-                  {member?.user?.profile_photo_url ? (
+                  {(member?.user?.profile_photo_url || userProfile?.profile_photo_url) ? (
                     <img 
-                      src={member.user.profile_photo_url} 
+                      src={member?.user?.profile_photo_url || userProfile?.profile_photo_url} 
                       alt="Profile" 
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                       <span className="text-white font-semibold text-sm sm:text-lg">
-                        {member?.user?.full_name?.charAt(0) || 'M'}
+                        {(member?.user?.full_name || userProfile?.full_name || user?.email)?.charAt(0)?.toUpperCase() || 'M'}
                       </span>
                     </div>
                   )}
@@ -160,7 +191,7 @@ export const MemberDashboard: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">Member Dashboard</h1>
                   <p className="text-sm sm:text-base text-gray-600 truncate">
-                    Welcome back, <span className="font-semibold text-blue-600">{member?.user?.full_name || 'Member'}</span>
+                    Welcome back, <span className="font-semibold text-blue-600">{member?.user?.full_name || userProfile?.full_name || user?.email || 'Member'}</span>
                   </p>
                 </div>
               </div>
@@ -223,9 +254,10 @@ export const MemberDashboard: React.FC = () => {
                         member?.status === 'ACTIVE' ? 'text-green-600' :
                         member?.status === 'INACTIVE' ? 'text-yellow-600' :
                         member?.status === 'EXPIRED' ? 'text-red-600' :
+                        userProfile?.role === 'MEMBER' ? 'text-blue-600' :
                         'text-gray-600'
                       }`}>
-                        {member?.status || 'Unknown'}
+                        {member?.status || (userProfile?.role === 'MEMBER' ? 'Pending Setup' : 'Unknown')}
                       </p>
                     </div>
                   </div>
@@ -259,7 +291,8 @@ export const MemberDashboard: React.FC = () => {
                     <div className="ml-3 lg:ml-4 min-w-0">
                       <h3 className="text-base lg:text-lg font-medium text-gray-900">Member Since</h3>
                       <p className="text-sm text-purple-600 font-semibold truncate">
-                        {member?.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
+                        {member?.join_date ? new Date(member.join_date).toLocaleDateString() : 
+                         userProfile?.role === 'MEMBER' ? new Date().toLocaleDateString() : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -308,6 +341,26 @@ export const MemberDashboard: React.FC = () => {
                           </li>
                         )) || []}
                       </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* New Member Welcome Message */}
+              {userProfile?.role === 'MEMBER' && !member?.fee_package && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 lg:p-6">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">Welcome to the Gym!</h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>Your membership account has been created successfully. An admin will review your application and assign you a membership package soon.</p>
+                        <p className="mt-2">You'll receive a notification once your membership is activated and you can start using all gym facilities.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -452,6 +505,48 @@ export const MemberDashboard: React.FC = () => {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     <span className="ml-2 text-gray-600">Loading member information...</span>
+                  </div>
+                </div>
+              ) : userProfile ? (
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                          <p className="mt-1 text-sm text-gray-900">{userProfile.full_name}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Email</label>
+                          <p className="mt-1 text-sm text-gray-900">{userProfile.email}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Account Type</label>
+                          <p className="mt-1 text-sm text-gray-900">{userProfile.role}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Status</label>
+                          <p className="mt-1 text-sm text-blue-600">Membership Pending Setup</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {userProfile.role === 'MEMBER' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex">
+                          <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="ml-3">
+                            <h4 className="text-sm font-medium text-blue-800">Membership Setup in Progress</h4>
+                            <p className="text-sm text-blue-700 mt-1">
+                              Your membership is being processed. An admin will assign you a membership package and activate your account soon.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
