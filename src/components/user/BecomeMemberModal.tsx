@@ -76,24 +76,33 @@ export const BecomeMemberModal: React.FC<BecomeMemberModalProps> = ({
         memberDetails
       );
 
+      console.log('BecomeMemberModal: Member created successfully:', member);
+      console.log('BecomeMemberModal: Selected package:', selectedPackage);
+
       // Create initial bill for the selected package (admin will assign package when marking as paid)
       const billData = {
         member_id: member.id,
         amount: selectedPackage.amount,
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
         status: 'PENDING' as const,
-        description: `Membership fee for ${selectedPackage.name}`,
         fee_package_id: selectedPackage.id,
-        notes: `Package selected during registration: ${selectedPackage.name} (${selectedPackage.duration_months} months)`
+        notes: `Membership fee for ${selectedPackage.name}. Package selected during registration: ${selectedPackage.name} (${selectedPackage.duration_months} months)`
       };
 
-      const { error: billError } = await supabase
+      console.log('BecomeMemberModal: Creating bill with data:', billData);
+
+      const { data: billResult, error: billError } = await supabase
         .from('bills')
-        .insert(billData);
+        .insert(billData)
+        .select()
+        .single();
 
       if (billError) {
-        console.warn('Failed to create initial bill:', billError.message);
-        // Don't fail the entire process for billing issues
+        console.error('BecomeMemberModal: Failed to create initial bill:', billError);
+        setError(`Failed to create bill: ${billError.message}`);
+        return;
+      } else {
+        console.log('BecomeMemberModal: Bill created successfully:', billResult);
       }
 
       onSuccess();
