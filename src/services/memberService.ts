@@ -305,21 +305,57 @@ export class MemberService {
     const prefix = 'GYM';
     const year = new Date().getFullYear();
     
-    // Get the count of members created this year
-    const { count, error } = await supabase
+    // Find the highest existing membership number for this year
+    const { data: existingMembers, error } = await supabase
       .from('members')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', `${year}-01-01`)
-      .lt('created_at', `${year + 1}-01-01`);
+      .select('membership_number')
+      .like('membership_number', `${prefix}${year}%`)
+      .order('membership_number', { ascending: false })
+      .limit(1);
 
     if (error) {
       throw new Error(`Failed to generate membership number: ${error.message}`);
     }
 
-    const memberCount = (count || 0) + 1;
-    const paddedCount = memberCount.toString().padStart(4, '0');
+    let nextNumber = 1;
     
-    return `${prefix}${year}${paddedCount}`;
+    if (existingMembers && existingMembers.length > 0) {
+      const lastNumber = existingMembers[0].membership_number;
+      // Extract the number part (last 4 digits)
+      const numberPart = lastNumber.slice(-4);
+      nextNumber = parseInt(numberPart, 10) + 1;
+    }
+
+    // Keep trying until we find a unique number (in case of race conditions)
+    let attempts = 0;
+    const maxAttempts = 100;
+    
+    while (attempts < maxAttempts) {
+      const paddedCount = nextNumber.toString().padStart(4, '0');
+      const membershipNumber = `${prefix}${year}${paddedCount}`;
+      
+      // Check if this number already exists
+      const { data: existing, error: checkError } = await supabase
+        .from('members')
+        .select('id')
+        .eq('membership_number', membershipNumber)
+        .limit(1);
+
+      if (checkError) {
+        throw new Error(`Failed to check membership number uniqueness: ${checkError.message}`);
+      }
+
+      if (!existing || existing.length === 0) {
+        // This number is unique, use it
+        return membershipNumber;
+      }
+
+      // Number exists, try the next one
+      nextNumber++;
+      attempts++;
+    }
+
+    throw new Error('Failed to generate unique membership number after maximum attempts');
   }
 
   // Get members by status
