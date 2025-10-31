@@ -459,4 +459,132 @@ export class MemberService {
 
     return data || [];
   }
+
+  // Sync missing member records - Create member records for users with MEMBER role who don't have them
+  static async syncMissingMemberRecords(): Promise<{
+    created: number;
+    errors: string[];
+    createdMembers: string[];
+  }> {
+    console.log('MemberService: Starting sync of missing member records...');
+    
+    try {
+      // Get all users with MEMBER role
+      const { data: memberUsers, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'MEMBER');
+
+      if (usersError) {
+        throw new Error(`Failed to fetch member users: ${usersError.message}`);
+      }
+
+      if (!memberUsers || memberUsers.length === 0) {
+        console.log('MemberService: No users with MEMBER role found');
+        return { created: 0, errors: [], createdMembers: [] };
+      }
+
+      console.log(`MemberService: Found ${memberUsers.length} users with MEMBER role`);
+
+      // Get existing member records
+      const { data: existingMembers, error: membersError } = await supabase
+        .from('members')
+        .select('user_id');
+
+      if (membersError) {
+        throw new Error(`Failed to fetch existing members: ${membersError.message}`);
+      }
+
+      const existingUserIds = new Set(existingMembers?.map(m => m.user_id) || []);
+      
+      // Find users who don't have member records
+      const missingMemberUsers = memberUsers.filter(user => !existingUserIds.has(user.id));
+      
+      console.log(`MemberService: Found ${missingMemberUsers.length} users missing member records`);
+
+      if (missingMemberUsers.length === 0) {
+        return { created: 0, errors: [], createdMembers: [] };
+      }
+
+      const results = {
+        created: 0,
+        errors: [] as string[],
+        createdMembers: [] as string[]
+      };
+
+      // Create member records for missing users
+      for (const user of missingMemberUsers) {
+        try {
+          console.log(`MemberService: Creating member record for user: ${user.full_name} (${user.email})`);
+          
+          // Generate membership number
+          const membershipNumber = await this.generateMembershipNumber();
+
+          const memberData = {
+            user_id: user.id,
+            membership_number: membershipNumber,
+            join_date: new Date().toISOString().split('T')[0],
+            status: 'INACTIVE' as const
+          };
+
+          const { error: createError } = await supabase
+            .from('members')
+            .insert(memberData);
+
+          if (createError) {
+            const errorMsg = `Failed to create member for ${user.full_name} (${user.email}): ${createError.message}`;
+            console.error('MemberService:', errorMsg);
+            results.errors.push(errorMsg);
+          } else {
+            results.created++;
+            results.createdMembers.push(`${user.full_name} (${user.email}) - ${membershipNumber}`);
+            console.log(`MemberService: Successfully created member record for ${user.full_name} with membership number ${membershipNumber}`);
+          }
+        } catch (error) {
+          const errorMsg = `Unexpected error creating member for ${user.full_name} (${user.email}): ${error}`;
+          console.error('MemberService:', errorMsg);
+          results.errors.push(errorMsg);
+        }
+      }
+
+      console.log(`MemberService: Sync completed. Created: ${results.created}, Errors: ${results.errors.length}`);
+      return results;
+      
+    } catch (error) {
+      console.error('MemberService: Error during sync:', error);
+      throw new Error(`Failed to sync member records: ${error}`);
+    }
+  }
+
+  // Get all users with MEMBER role (including those without member records)
+  static async getAllMemberUsers(): Promise<any[]> {
+    console.log('MemberService: Fetching all users with MEMBER role...');
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select(`
+        *,
+        member:members(
+          id,
+          membership_number,
+          join_date,
+          status,
+          membership_start_date,
+          membership_end_date,
+          fee_package_id,
+          fee_package:fee_packages(*)
+        )
+      `)
+      .eq('role', 'MEMBER')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('MemberService: Error fetching member users:', error);
+      throw new Error(`Failed to fetch member users: ${error.message}`);
+    }
+
+    console.log(`MemberService: Found ${data?.length || 0} users with MEMBER role`);
+    
+    return data || [];
+  }
 }
