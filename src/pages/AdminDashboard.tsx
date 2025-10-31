@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { MemberManagement, BillingManagement, NotificationManagement } from '../components/admin';
 import { ReportsAnalytics } from '../components/admin/ReportsAnalytics';
 import { DashboardStats } from '../components/admin/DashboardStats';
+import { PackageManager } from '../components/admin/PackageManager';
 import { SupplementManagement } from '../components/admin/SupplementManagement';
 import { SupplementBilling } from '../components/admin/SupplementBilling';
 import { SupplementStore } from '../components/shared/SupplementStore';
@@ -144,16 +145,8 @@ export const AdminDashboard: React.FC = () => {
             {/* Quick Stats */}
             <DashboardStats />
 
-            {/* Recent Activity */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-              <div className="text-center py-8">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <p className="mt-2 text-sm text-gray-500">No recent activity</p>
-              </div>
-            </div>
+            {/* Package Manager */}
+            <PackageManager />
           </div>
         );
       case 'members':
