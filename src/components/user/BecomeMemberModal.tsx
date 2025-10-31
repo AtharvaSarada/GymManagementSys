@@ -70,21 +70,21 @@ export const BecomeMemberModal: React.FC<BecomeMemberModalProps> = ({
       setLoading(true);
       setError(null);
 
-      // Use the MemberService to upgrade user to member
+      // Use the MemberService to upgrade user to member (without package assignment)
       const { member } = await MemberService.upgradeUserToMember(
         userProfile.id,
-        selectedPackage.id,
         memberDetails
       );
 
-      // Create initial bill
+      // Create initial bill for the selected package (admin will assign package when marking as paid)
       const billData = {
         member_id: member.id,
         amount: selectedPackage.amount,
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
         status: 'PENDING' as const,
         description: `Membership fee for ${selectedPackage.name}`,
-        fee_package_id: selectedPackage.id
+        fee_package_id: selectedPackage.id,
+        notes: `Package selected during registration: ${selectedPackage.name} (${selectedPackage.duration_months} months)`
       };
 
       const { error: billError } = await supabase
@@ -341,8 +341,8 @@ export const BecomeMemberModal: React.FC<BecomeMemberModalProps> = ({
                   </svg>
                   <div className="ml-3">
                     <p className="text-sm text-yellow-800">
-                      <strong>Important:</strong> A bill will be generated for your membership fee. 
-                      You can pay it later through the member dashboard.
+                      <strong>Important:</strong> Your membership will be created with INACTIVE status. 
+                      An admin will assign your selected package and activate your membership once payment is processed.
                     </p>
                   </div>
                 </div>

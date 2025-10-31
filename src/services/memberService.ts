@@ -588,10 +588,9 @@ export class MemberService {
     return data || [];
   }
 
-  // Upgrade user to member with selected package
+  // Upgrade user to member (without package assignment - admin will assign later)
   static async upgradeUserToMember(
     userId: string,
-    packageId: string,
     memberDetails: {
       phone?: string;
       address?: string;
@@ -619,31 +618,18 @@ export class MemberService {
       // Step 2: Generate membership number
       const membershipNumber = await this.generateMembershipNumber();
 
-      // Step 3: Get package details for end date calculation
-      const { data: feePackage, error: packageError } = await supabase
-        .from('fee_packages')
-        .select('duration_months')
-        .eq('id', packageId)
-        .single();
-
-      if (packageError) {
-        throw new Error(`Failed to fetch package details: ${packageError.message}`);
-      }
-
-      // Step 4: Calculate membership end date
+      // Step 3: Prepare member creation date
       const startDate = new Date();
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + feePackage.duration_months);
 
-      // Step 5: Create member record
+      // Step 5: Create member record (INACTIVE until admin assigns package and marks bill as paid)
       const memberData = {
         user_id: userId,
         membership_number: membershipNumber,
         join_date: startDate.toISOString().split('T')[0],
-        status: 'ACTIVE' as const,
-        fee_package_id: packageId,
-        membership_start_date: startDate.toISOString().split('T')[0],
-        membership_end_date: endDate.toISOString().split('T')[0],
+        status: 'INACTIVE' as const, // Member starts as INACTIVE
+        fee_package_id: null, // No package assigned initially
+        membership_start_date: null, // Will be set when admin activates membership
+        membership_end_date: null, // Will be calculated when admin activates membership
         address: memberDetails.address || null,
         emergency_contact_name: memberDetails.emergency_contact_name || null,
         emergency_contact_phone: memberDetails.emergency_contact_phone || null,
