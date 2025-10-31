@@ -305,57 +305,88 @@ export class MemberService {
     const prefix = 'GYM';
     const year = new Date().getFullYear();
     
-    // Find the highest existing membership number for this year
-    const { data: existingMembers, error } = await supabase
-      .from('members')
-      .select('membership_number')
-      .like('membership_number', `${prefix}${year}%`)
-      .order('membership_number', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      throw new Error(`Failed to generate membership number: ${error.message}`);
-    }
-
-    let nextNumber = 1;
+    console.log('MemberService: Generating membership number...');
     
-    if (existingMembers && existingMembers.length > 0) {
-      const lastNumber = existingMembers[0].membership_number;
-      // Extract the number part (last 4 digits)
-      const numberPart = lastNumber.slice(-4);
-      nextNumber = parseInt(numberPart, 10) + 1;
-    }
-
-    // Keep trying until we find a unique number (in case of race conditions)
-    let attempts = 0;
-    const maxAttempts = 100;
+    // Use timestamp + random number for better uniqueness
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000);
     
-    while (attempts < maxAttempts) {
-      const paddedCount = nextNumber.toString().padStart(4, '0');
-      const membershipNumber = `${prefix}${year}${paddedCount}`;
-      
-      // Check if this number already exists
-      const { data: existing, error: checkError } = await supabase
+    // Try sequential approach first
+    try {
+      // Find the highest existing membership number for this year
+      const { data: existingMembers, error } = await supabase
         .from('members')
-        .select('id')
-        .eq('membership_number', membershipNumber)
+        .select('membership_number')
+        .like('membership_number', `${prefix}${year}%`)
+        .order('membership_number', { ascending: false })
         .limit(1);
 
-      if (checkError) {
-        throw new Error(`Failed to check membership number uniqueness: ${checkError.message}`);
+      if (error) {
+        console.warn('MemberService: Error fetching existing members, using fallback approach:', error.message);
+        // Fallback to timestamp-based approach
+        const fallbackNumber = `${prefix}${year}${(timestamp % 10000).toString().padStart(4, '0')}`;
+        console.log('MemberService: Generated fallback membership number:', fallbackNumber);
+        return fallbackNumber;
       }
 
-      if (!existing || existing.length === 0) {
-        // This number is unique, use it
-        return membershipNumber;
+      let nextNumber = 1;
+      
+      if (existingMembers && existingMembers.length > 0) {
+        const lastNumber = existingMembers[0].membership_number;
+        console.log('MemberService: Last membership number found:', lastNumber);
+        // Extract the number part (last 4 digits)
+        const numberPart = lastNumber.slice(-4);
+        nextNumber = parseInt(numberPart, 10) + 1;
       }
 
-      // Number exists, try the next one
-      nextNumber++;
-      attempts++;
+      // Keep trying until we find a unique number (in case of race conditions)
+      let attempts = 0;
+      const maxAttempts = 50; // Reduced attempts, then fallback
+      
+      while (attempts < maxAttempts) {
+        const paddedCount = nextNumber.toString().padStart(4, '0');
+        const membershipNumber = `${prefix}${year}${paddedCount}`;
+        
+        console.log(`MemberService: Checking membership number uniqueness (attempt ${attempts + 1}):`, membershipNumber);
+        
+        // Check if this number already exists
+        const { data: existing, error: checkError } = await supabase
+          .from('members')
+          .select('id')
+          .eq('membership_number', membershipNumber)
+          .limit(1);
+
+        if (checkError) {
+          console.warn('MemberService: Error checking uniqueness, using fallback:', checkError.message);
+          // Fallback to timestamp + random approach
+          const fallbackNumber = `${prefix}${year}${((timestamp + random) % 10000).toString().padStart(4, '0')}`;
+          console.log('MemberService: Generated fallback membership number:', fallbackNumber);
+          return fallbackNumber;
+        }
+
+        if (!existing || existing.length === 0) {
+          // This number is unique, use it
+          console.log('MemberService: Generated unique membership number:', membershipNumber);
+          return membershipNumber;
+        }
+
+        // Number exists, try the next one
+        nextNumber++;
+        attempts++;
+      }
+
+      // If we've exhausted attempts, use timestamp-based fallback
+      const fallbackNumber = `${prefix}${year}${((timestamp + random + attempts) % 10000).toString().padStart(4, '0')}`;
+      console.log('MemberService: Max attempts reached, using fallback membership number:', fallbackNumber);
+      return fallbackNumber;
+      
+    } catch (error) {
+      console.error('MemberService: Unexpected error in membership number generation:', error);
+      // Ultimate fallback
+      const emergencyNumber = `${prefix}${year}${((timestamp + random) % 10000).toString().padStart(4, '0')}`;
+      console.log('MemberService: Using emergency fallback membership number:', emergencyNumber);
+      return emergencyNumber;
     }
-
-    throw new Error('Failed to generate unique membership number after maximum attempts');
   }
 
   // Get members by status
@@ -651,45 +682,79 @@ export class MemberService {
         throw new Error(`Failed to update user role: ${roleUpdateError.message}`);
       }
 
-      // Step 2: Generate membership number
-      const membershipNumber = await this.generateMembershipNumber();
+      // Step 2: Generate membership number with retry logic
+      let membershipNumber: string = '';
+      let member: any = null;
+      let attempts = 0;
+      const maxAttempts = 5;
 
-      // Step 3: Prepare member creation date
-      const startDate = new Date();
+      while (attempts < maxAttempts) {
+        try {
+          membershipNumber = await this.generateMembershipNumber();
+          console.log(`MemberService: Attempting to create member with number: ${membershipNumber} (attempt ${attempts + 1})`);
 
-      // Step 5: Create member record (INACTIVE until admin assigns package and marks bill as paid)
-      const memberData = {
-        user_id: userId,
-        membership_number: membershipNumber,
-        join_date: startDate.toISOString().split('T')[0],
-        status: 'INACTIVE' as const, // Member starts as INACTIVE
-        fee_package_id: null, // No package assigned initially
-        membership_start_date: null, // Will be set when admin activates membership
-        membership_end_date: null, // Will be calculated when admin activates membership
-        address: memberDetails.address || null,
-        emergency_contact_name: memberDetails.emergency_contact_name || null,
-        emergency_contact_phone: memberDetails.emergency_contact_phone || null,
-        date_of_birth: memberDetails.date_of_birth || null
-      };
+          // Step 3: Prepare member creation date
+          const startDate = new Date();
 
-      const { data: member, error: memberError } = await supabase
-        .from('members')
-        .insert(memberData)
-        .select(`
-          *,
-          user:users(*),
-          fee_package:fee_packages(*)
-        `)
-        .single();
+          // Step 4: Create member record (INACTIVE until admin assigns package and marks bill as paid)
+          const memberData = {
+            user_id: userId,
+            membership_number: membershipNumber,
+            join_date: startDate.toISOString().split('T')[0],
+            status: 'INACTIVE' as const, // Member starts as INACTIVE
+            fee_package_id: null, // No package assigned initially
+            membership_start_date: null, // Will be set when admin activates membership
+            membership_end_date: null, // Will be calculated when admin activates membership
+            address: memberDetails.address || null,
+            emergency_contact_name: memberDetails.emergency_contact_name || null,
+            emergency_contact_phone: memberDetails.emergency_contact_phone || null,
+            date_of_birth: memberDetails.date_of_birth || null
+          };
 
-      if (memberError) {
-        // Rollback user role update
-        await supabase
-          .from('users')
-          .update({ role: 'USER' })
-          .eq('id', userId);
-        
-        throw new Error(`Failed to create member record: ${memberError.message}`);
+          const { data: memberResult, error: memberError } = await supabase
+            .from('members')
+            .insert(memberData)
+            .select(`
+              *,
+              user:users(*),
+              fee_package:fee_packages(*)
+            `)
+            .single();
+
+          if (memberError) {
+            if (memberError.message.includes('duplicate key value violates unique constraint')) {
+              console.log(`MemberService: Duplicate membership number detected, retrying... (attempt ${attempts + 1})`);
+              attempts++;
+              continue; // Try again with a new membership number
+            } else {
+              // Different error, rollback and throw
+              await supabase
+                .from('users')
+                .update({ role: 'USER' })
+                .eq('id', userId);
+              
+              throw new Error(`Failed to create member record: ${memberError.message}`);
+            }
+          }
+
+          // Success!
+          member = memberResult;
+          break;
+
+        } catch (error) {
+          console.error(`MemberService: Error on attempt ${attempts + 1}:`, error);
+          attempts++;
+          
+          if (attempts >= maxAttempts) {
+            // Rollback user role update
+            await supabase
+              .from('users')
+              .update({ role: 'USER' })
+              .eq('id', userId);
+            
+            throw new Error(`Failed to create member record after ${maxAttempts} attempts: ${error}`);
+          }
+        }
       }
 
       console.log('MemberService: User successfully upgraded to member:', membershipNumber);
