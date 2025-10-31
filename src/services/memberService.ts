@@ -569,6 +569,10 @@ export class MemberService {
           membership_start_date,
           membership_end_date,
           fee_package_id,
+          address,
+          emergency_contact_name,
+          emergency_contact_phone,
+          date_of_birth,
           fee_package:fee_packages(*)
         )
       `)
