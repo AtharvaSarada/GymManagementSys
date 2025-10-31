@@ -68,18 +68,19 @@ export const UserDashboard: React.FC = () => {
         {/* Header */}
         <header className="bg-white/95 backdrop-blur-sm shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+            <div className="flex justify-between items-center py-4 sm:py-6">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
                   {activeSection === 'gym-info' ? 'Gym Information' : 'Supplement Store'}
                 </h1>
-                <p className="text-gray-600">Welcome, {userProfile?.full_name}</p>
+                <p className="text-sm sm:text-base text-gray-600 truncate">Welcome, {userProfile?.full_name}</p>
               </div>
               <button
                 onClick={signOut}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-shrink-0 ml-2"
               >
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
+                <span className="sm:hidden">Out</span>
               </button>
             </div>
           </div>
@@ -88,22 +89,23 @@ export const UserDashboard: React.FC = () => {
         {/* Navigation */}
         <nav className="bg-white/90 backdrop-blur-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex space-x-8">
+            <div className="flex space-x-4 sm:space-x-8">
               {[
-                { id: 'gym-info', label: 'Gym Information', icon: '🏋️' },
-                { id: 'supplements', label: 'Supplement Store', icon: '💊' },
+                { id: 'gym-info', label: 'Gym Information', icon: '🏋️', shortLabel: 'Gym Info' },
+                { id: 'supplements', label: 'Supplement Store', icon: '💊', shortLabel: 'Supplements' },
               ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id as any)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-1 sm:px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors ${
                     activeSection === item.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span className="text-sm sm:text-base">{item.icon}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="sm:hidden">{item.shortLabel}</span>
                 </button>
               ))}
             </div>
@@ -111,7 +113,7 @@ export const UserDashboard: React.FC = () => {
         </nav>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
           {activeSection === 'gym-info' && (
             <>
               {/* Search Component */}

@@ -161,36 +161,36 @@ export const GymInfoSearch: React.FC<GymInfoSearchProps> = ({ onSearchResults })
   }, [selectedCategory, sortBy, sortOrder]);
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Search Gym Information</h2>
+    <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Search Gym Information</h2>
       
       {/* Search Input and Category Filter */}
       <div className="space-y-4">
-        <div className="flex gap-4">
+        <div className="flex gap-2 sm:gap-4">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search for gym services, equipment, or information..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Search for gym services, equipment..."
+            className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
           />
           <button
             onClick={handleSearch}
             disabled={isSearching}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 sm:px-6 py-2 rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
           >
             {isSearching ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Searching...
+                <span className="hidden sm:inline">Searching...</span>
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Search
+                <span className="hidden sm:inline">Search</span>
               </>
             )}
           </button>
@@ -198,12 +198,12 @@ export const GymInfoSearch: React.FC<GymInfoSearchProps> = ({ onSearchResults })
 
         {/* Category Filter */}
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm font-medium text-gray-700">Categories:</span>
+          <span className="text-xs sm:text-sm font-medium text-gray-700 w-full sm:w-auto mb-1 sm:mb-0">Categories:</span>
           {categories.map((category) => (
             <button
               key={category.value}
               onClick={() => setSelectedCategory(category.value)}
-              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm transition-colors ${
                 selectedCategory === category.value
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -215,13 +215,13 @@ export const GymInfoSearch: React.FC<GymInfoSearchProps> = ({ onSearchResults })
         </div>
 
         {/* Sorting Controls */}
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Sort by:</span>
+            <span className="text-xs sm:text-sm font-medium text-gray-700">Sort by:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-2 sm:px-3 py-1 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {sortOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -233,11 +233,12 @@ export const GymInfoSearch: React.FC<GymInfoSearchProps> = ({ onSearchResults })
           
           <button
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs sm:text-sm transition-colors"
           >
-            <span>{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
+            <span className="hidden sm:inline">{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
+            <span className="sm:hidden">{sortOrder === 'asc' ? 'Asc' : 'Desc'}</span>
             <svg 
-              className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} 
+              className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -249,9 +250,10 @@ export const GymInfoSearch: React.FC<GymInfoSearchProps> = ({ onSearchResults })
           {(searchTerm || selectedCategory !== 'all' || sortBy !== 'name' || sortOrder !== 'asc') && (
             <button
               onClick={clearSearch}
-              className="px-3 py-1 rounded-lg text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+              className="px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
             >
-              Reset All
+              <span className="hidden sm:inline">Reset All</span>
+              <span className="sm:hidden">Reset</span>
             </button>
           )}
         </div>
