@@ -13,6 +13,16 @@ export const MemberDashboard: React.FC = () => {
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<'overview' | 'bills' | 'notifications' | 'diet' | 'supplements' | 'profile'>('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigationItems = [
+    { id: 'overview', label: 'Overview', icon: '🏠' },
+    { id: 'bills', label: 'Bills & Receipts', icon: '📄' },
+    { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'diet', label: 'My Diet Plan', icon: '🍎' },
+    { id: 'supplements', label: 'Supplement Store', icon: '💊' },
+    { id: 'profile', label: 'Profile', icon: '👤' },
+  ];
 
   useEffect(() => {
     const fetchMemberData = async () => {
@@ -64,14 +74,74 @@ export const MemberDashboard: React.FC = () => {
         }}
       ></div>
       
-      <div className="relative z-10">
+      <div className="relative z-10 min-h-screen">
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Mobile Navigation Menu */}
+        <div className={`
+          fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden z-50
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Menu</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <nav className="mt-4 px-3">
+            <div className="space-y-1">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveSection(item.id as any);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center px-4 py-3 text-left text-sm font-medium transition-colors touch-manipulation ${
+                    activeSection === item.id
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
+                  }`}
+                >
+                  <span className="mr-3 text-lg">{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
+
         {/* Header */}
-        <header className="bg-white/95 backdrop-blur-sm shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div className="flex items-center space-x-4">
+        <header className="bg-white/95 backdrop-blur-sm shadow-lg sticky top-0 z-30">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                {/* Mobile Menu Button */}
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+
                 {/* Profile Photo */}
-                <div className="w-12 h-12 rounded-full bg-gray-300 overflow-hidden">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
                   {member?.user?.profile_photo_url ? (
                     <img 
                       src={member.user.profile_photo_url} 
@@ -80,50 +150,41 @@ export const MemberDashboard: React.FC = () => {
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <span className="text-white font-semibold text-lg">
+                      <span className="text-white font-semibold text-sm sm:text-lg">
                         {member?.user?.full_name?.charAt(0) || 'M'}
                       </span>
                     </div>
                   )}
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Member Dashboard</h1>
-                  <p className="text-gray-600">
-                    Welcome back, {member?.user?.full_name || 'Member'}
-                    {member?.membership_number && (
-                      <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {member.membership_number}
-                      </span>
-                    )}
+                
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">Member Dashboard</h1>
+                  <p className="text-sm sm:text-base text-gray-600 truncate">
+                    Welcome back, <span className="font-semibold text-blue-600">{member?.user?.full_name || 'Member'}</span>
                   </p>
                 </div>
               </div>
+              
               <button
                 onClick={signOut}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-shrink-0 ml-2"
               >
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
+                <span className="sm:hidden">Out</span>
               </button>
             </div>
           </div>
         </header>
 
-        {/* Navigation */}
-        <nav className="bg-white/90 backdrop-blur-sm border-b border-gray-200">
+        {/* Desktop Navigation - Hidden on Mobile */}
+        <nav className="hidden lg:block bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-[88px] z-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex space-x-8">
-              {[
-                { id: 'overview', label: 'Overview', icon: '🏠' },
-                { id: 'bills', label: 'Bills & Receipts', icon: '📄' },
-                { id: 'notifications', label: 'Notifications', icon: '🔔' },
-                { id: 'diet', label: 'My Diet Plan', icon: '🍎' },
-                { id: 'supplements', label: 'Supplement Store', icon: '💊' },
-                { id: 'profile', label: 'Profile', icon: '👤' },
-              ].map((item) => (
+            <div className="flex space-x-8 overflow-x-auto">
+              {navigationItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id as any)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                     activeSection === item.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -138,13 +199,13 @@ export const MemberDashboard: React.FC = () => {
         </nav>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-7xl mx-auto">
           {activeSection === 'overview' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Membership Status Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 {/* Status Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                   <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                       member?.status === 'ACTIVE' ? 'bg-green-500' :
@@ -156,9 +217,9 @@ export const MemberDashboard: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">Status</h3>
-                      <p className={`text-sm font-semibold ${
+                    <div className="ml-3 lg:ml-4 min-w-0">
+                      <h3 className="text-base lg:text-lg font-medium text-gray-900">Status</h3>
+                      <p className={`text-sm font-semibold truncate ${
                         member?.status === 'ACTIVE' ? 'text-green-600' :
                         member?.status === 'INACTIVE' ? 'text-yellow-600' :
                         member?.status === 'EXPIRED' ? 'text-red-600' :
@@ -171,16 +232,16 @@ export const MemberDashboard: React.FC = () => {
                 </div>
 
                 {/* Package Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                   <div className="flex items-center">
                     <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">Package</h3>
-                      <p className="text-sm text-blue-600 font-semibold">
+                    <div className="ml-3 lg:ml-4 min-w-0">
+                      <h3 className="text-base lg:text-lg font-medium text-gray-900">Package</h3>
+                      <p className="text-sm text-blue-600 font-semibold truncate">
                         {member?.fee_package?.name || 'No Package'}
                       </p>
                     </div>
@@ -188,16 +249,16 @@ export const MemberDashboard: React.FC = () => {
                 </div>
 
                 {/* Join Date Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                   <div className="flex items-center">
                     <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">Member Since</h3>
-                      <p className="text-sm text-purple-600 font-semibold">
+                    <div className="ml-3 lg:ml-4 min-w-0">
+                      <h3 className="text-base lg:text-lg font-medium text-gray-900">Member Since</h3>
+                      <p className="text-sm text-purple-600 font-semibold truncate">
                         {member?.join_date ? new Date(member.join_date).toLocaleDateString() : 'N/A'}
                       </p>
                     </div>
@@ -205,16 +266,16 @@ export const MemberDashboard: React.FC = () => {
                 </div>
 
                 {/* Expiry Card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                   <div className="flex items-center">
                     <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">Expires</h3>
-                      <p className="text-sm text-orange-600 font-semibold">
+                    <div className="ml-3 lg:ml-4 min-w-0">
+                      <h3 className="text-base lg:text-lg font-medium text-gray-900">Expires</h3>
+                      <p className="text-sm text-orange-600 font-semibold truncate">
                         {member?.membership_end_date ? new Date(member.membership_end_date).toLocaleDateString() : 'N/A'}
                       </p>
                     </div>
@@ -224,23 +285,23 @@ export const MemberDashboard: React.FC = () => {
 
               {/* Membership Details */}
               {member?.fee_package && (
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Current Membership Package</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+                  <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-4">Current Membership Package</h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">{member.fee_package.name}</h3>
-                      <p className="text-gray-600 mb-4">{member.fee_package.description}</p>
+                      <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-2">{member.fee_package.name}</h3>
+                      <p className="text-gray-600 mb-4 text-sm lg:text-base">{member.fee_package.description}</p>
                       <div className="flex items-center space-x-4">
-                        <span className="text-2xl font-bold text-green-600">₹{member.fee_package.amount}</span>
-                        <span className="text-gray-500">/ {member.fee_package.duration_months} month(s)</span>
+                        <span className="text-xl lg:text-2xl font-bold text-green-600">₹{member.fee_package.amount}</span>
+                        <span className="text-gray-500 text-sm lg:text-base">/ {member.fee_package.duration_months} month(s)</span>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800 mb-2">Package Features</h4>
+                      <h4 className="text-sm lg:text-base font-semibold text-gray-800 mb-2">Package Features</h4>
                       <ul className="space-y-1">
                         {member.fee_package.features?.map((feature, index) => (
-                          <li key={index} className="flex items-center text-sm text-gray-600">
-                            <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <li key={index} className="flex items-center text-xs lg:text-sm text-gray-600">
+                            <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                             {feature}
@@ -253,45 +314,45 @@ export const MemberDashboard: React.FC = () => {
               )}
 
               {/* Quick Actions */}
-              <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+                <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                   <button
                     onClick={() => setActiveSection('bills')}
-                    className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                    className="flex items-center p-3 lg:p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left"
                   >
-                    <svg className="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">View Bills</div>
-                      <div className="text-sm text-gray-500">Check payment history</div>
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm lg:text-base">View Bills</div>
+                      <div className="text-xs lg:text-sm text-gray-500">Check payment history</div>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => setActiveSection('notifications')}
-                    className="flex items-center p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors"
+                    className="flex items-center p-3 lg:p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors text-left"
                   >
-                    <svg className="w-6 h-6 text-yellow-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 lg:w-6 lg:h-6 text-yellow-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2zM4 15h8v-2H4v2zM4 11h10V9H4v2z" />
                     </svg>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">Notifications</div>
-                      <div className="text-sm text-gray-500">View gym updates</div>
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm lg:text-base">Notifications</div>
+                      <div className="text-xs lg:text-sm text-gray-500">View gym updates</div>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => setActiveSection('profile')}
-                    className="flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                    className="flex items-center p-3 lg:p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left sm:col-span-2 lg:col-span-1"
                   >
-                    <svg className="w-6 h-6 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">Update Profile</div>
-                      <div className="text-sm text-gray-500">Manage your information</div>
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm lg:text-base">Update Profile</div>
+                      <div className="text-xs lg:text-sm text-gray-500">Manage your information</div>
                     </div>
                   </button>
                 </div>
@@ -301,8 +362,8 @@ export const MemberDashboard: React.FC = () => {
 
           {/* Bills & Receipts Section */}
           {activeSection === 'bills' && (
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Bills & Receipts</h2>
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+              <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-6">Bills & Receipts</h2>
               {member ? (
                 <BillsAndReceipts memberId={member.id} />
               ) : (
@@ -313,8 +374,8 @@ export const MemberDashboard: React.FC = () => {
 
           {/* Notifications Section */}
           {activeSection === 'notifications' && (
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Notifications</h2>
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+              <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-6">Notifications</h2>
               {member ? (
                 <MemberNotifications memberId={member.id} />
               ) : (
@@ -325,8 +386,8 @@ export const MemberDashboard: React.FC = () => {
 
           {/* Diet Plan Section */}
           {activeSection === 'diet' && (
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">My Diet Plan</h2>
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
+              <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-6">My Diet Plan</h2>
               {member ? (
                 <MemberDietPlan memberId={member.id} />
               ) : (
@@ -337,7 +398,7 @@ export const MemberDashboard: React.FC = () => {
 
           {/* Supplement Store Section */}
           {activeSection === 'supplements' && (
-            <div className="mt-[-2rem]">
+            <div>
               <SupplementStore />
             </div>
           )}
@@ -345,7 +406,7 @@ export const MemberDashboard: React.FC = () => {
           {/* Profile Management Section */}
           {activeSection === 'profile' && (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+              <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-6 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                 Profile Management
               </h2>
               {member ? (
@@ -354,7 +415,7 @@ export const MemberDashboard: React.FC = () => {
                   onMemberUpdate={(updatedMember) => setMember(updatedMember)}
                 />
               ) : (
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 lg:p-6">
                   <p className="text-gray-600">Loading member information...</p>
                 </div>
               )}
