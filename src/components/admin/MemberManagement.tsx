@@ -80,23 +80,71 @@ export const MemberManagement: React.FC = () => {
     setViewMode('create');
   };
 
-  const handleEditMember = (member: Member) => {
-    setSelectedMember(member);
-    setViewMode('edit');
+  const handleEditMember = (memberData: any) => {
+    // Find the full user data for this member
+    const userWithMember = memberUsers.find(user => user.member?.id === memberData.id);
+    
+    if (userWithMember && userWithMember.member) {
+      // Create the proper member object structure with user data
+      const memberWithUser = {
+        ...userWithMember.member,
+        user: {
+          id: userWithMember.id,
+          full_name: userWithMember.full_name,
+          email: userWithMember.email,
+          phone: userWithMember.phone,
+          profile_photo_url: userWithMember.profile_photo_url,
+          role: userWithMember.role,
+          created_at: userWithMember.created_at,
+          updated_at: userWithMember.updated_at
+        }
+      };
+      
+      setSelectedMember(memberWithUser);
+      setViewMode('edit');
+    } else {
+      setError('Member data not found');
+    }
   };
 
-  const handleViewMember = (member: Member) => {
-    setSelectedMember(member);
-    setViewMode('details');
+  const handleViewMember = (memberData: any) => {
+    // Find the full user data for this member
+    const userWithMember = memberUsers.find(user => user.member?.id === memberData.id);
+    
+    if (userWithMember && userWithMember.member) {
+      // Create the proper member object structure with user data
+      const memberWithUser = {
+        ...userWithMember.member,
+        user: {
+          id: userWithMember.id,
+          full_name: userWithMember.full_name,
+          email: userWithMember.email,
+          phone: userWithMember.phone,
+          profile_photo_url: userWithMember.profile_photo_url,
+          role: userWithMember.role,
+          created_at: userWithMember.created_at,
+          updated_at: userWithMember.updated_at
+        }
+      };
+      
+      setSelectedMember(memberWithUser);
+      setViewMode('details');
+    } else {
+      setError('Member data not found');
+    }
   };
 
-  const handleDeleteMember = async (member: Member) => {
-    if (!confirm(`Are you sure you want to delete member ${member.user?.full_name || member.membership_number}? This action cannot be undone.`)) {
+  const handleDeleteMember = async (memberData: any) => {
+    // Find the full user data for this member
+    const userWithMember = memberUsers.find(user => user.member?.id === memberData.id);
+    const memberName = userWithMember?.full_name || memberData.membership_number;
+    
+    if (!confirm(`Are you sure you want to delete member ${memberName}? This action cannot be undone.`)) {
       return;
     }
 
     try {
-      await MemberService.deleteMember(member.id);
+      await MemberService.deleteMember(memberData.id);
       await loadMembers(); // Reload the list
       setError(null);
     } catch (err) {
@@ -111,9 +159,32 @@ export const MemberManagement: React.FC = () => {
     setSelectedMember(null);
   };
 
-  const handleAssignPackage = (member: Member) => {
-    setSelectedMember(member);
-    setViewMode('assign-package');
+  const handleAssignPackage = (memberData: any) => {
+    // Find the full user data for this member
+    const userWithMember = memberUsers.find(user => user.member?.id === memberData.id);
+    
+    if (userWithMember && userWithMember.member) {
+      // Create the proper member object structure with user data
+      const memberWithUser = {
+        ...userWithMember.member,
+        user: {
+          id: userWithMember.id,
+          full_name: userWithMember.full_name,
+          email: userWithMember.email,
+          phone: userWithMember.phone,
+          profile_photo_url: userWithMember.profile_photo_url,
+          role: userWithMember.role,
+          created_at: userWithMember.created_at,
+          updated_at: userWithMember.updated_at
+        }
+      };
+      
+      console.log('MemberManagement: Setting member for package assignment:', memberWithUser);
+      setSelectedMember(memberWithUser);
+      setViewMode('assign-package');
+    } else {
+      setError('Member data not found');
+    }
   };
 
   const handleMemberSaved = async () => {
